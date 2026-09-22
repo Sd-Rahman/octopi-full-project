@@ -79,5 +79,11 @@ export const resetPassword = asyncHandler(async (req, res) => {
   user.resetPasswordExpires = null;
   await user.save();
 
-  res.json({ message: 'Password set successfully. You can now log in.' });
+  const token = generateToken(user._id);
+
+  res.json({
+    message: 'Password set successfully. You are now logged in.',
+    user: { id: user._id, name: user.name, email: user.email, role: user.role, orgId: user.orgId },
+    token,
+  });
 });

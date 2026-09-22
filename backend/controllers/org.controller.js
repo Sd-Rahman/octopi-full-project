@@ -150,19 +150,18 @@ export const changeMemberRole = asyncHandler(async (req, res) => {
   res.json(user);
 });
 
-// DELETE /api/org/members/:id — org_admin only, soft delete
+// DELETE /api/org/members/:id — org_admin only
 export const removeMember = asyncHandler(async (req, res) => {
   if (req.params.id === req.user._id.toString()) {
     return res.status(400).json({ error: 'You cannot remove your own account' });
   }
 
-  const user = await User.findOneAndUpdate(
-    { _id: req.params.id, orgId: req.user.orgId },
-    { status: 'removed' },
-    { new: true }
-  );
+  const user = await User.findOneAndDelete({
+    _id: req.params.id,
+    orgId: req.user.orgId,
+  });
   if (!user) return res.status(404).json({ error: 'Member not found in your organization' });
-  res.json({ message: 'Member removed' });
+  res.json({ message: 'Member deleted from database successfully' });
 });
 
 // ── Subscription ──
