@@ -201,7 +201,7 @@ const run = async () => {
     console.log('✓ Created active Starter subscription & transactions for Starlight');
   }
 
-  // 5. Organization 3: Nova Systems (Pending)
+  // 5. Organization 3: Nova Systems (Pending / Inactive Subscription)
   let nova = await Organization.findOne({ name: 'Nova Systems' });
   if (!nova) {
     nova = await Organization.create({
@@ -209,9 +209,16 @@ const run = async () => {
       billingEmail: 'founder@novasystems.dev',
       contactEmail: 'support@novasystems.dev',
       status: 'pending',
-      currentPlan: starterPlan._id,
+      currentPlan: null,
     });
-    console.log('✓ Created organization: Nova Systems (Pending)');
+    console.log('✓ Created organization: Nova Systems (Pending, No Plan Selected)');
+  } else {
+    // Reset Nova to pending with no plan so admin can choose individually
+    nova.status = 'pending';
+    nova.currentPlan = null;
+    await nova.save();
+    await Subscription.deleteMany({ orgId: nova._id });
+    console.log('✓ Reset organization: Nova Systems (Pending, No Plan Selected)');
   }
 
   const novaAdminEmail = 'founder@novasystems.dev';
@@ -227,28 +234,12 @@ const run = async () => {
     console.log(`✓ Created Org Admin: ${novaAdminEmail} / Password123!`);
   }
 
-  let novaSub = await Subscription.findOne({ orgId: nova._id });
-  if (!novaSub) {
-    await Subscription.create({
-      orgId: nova._id,
-      planId: starterPlan._id,
-      status: 'PENDING',
-    });
-    await Transaction.create({
-      orgId: nova._id,
-      type: 'subscription_payment',
-      amount: 999,
-      status: 'PENDING',
-      meta: { planName: 'Starter' },
-    });
-    console.log('✓ Created pending subscription record for Nova');
-  }
-
   console.log('\n--- Demo Data Seeding Complete ---');
-  console.log('Platform Admin:  admin@octopi.dev      / Admin123!');
-  console.log('Org Admin (Pro): admin@acme.com        / Password123!');
-  console.log('Org Member:      alice@acme.com        / Password123!');
-  console.log('Org Admin (St):  admin@starlight.io    / Password123!');
+  console.log('Platform Admin:      admin@octopi.dev          / Admin123!');
+  console.log('Org Admin (Pro):     admin@acme.com            / Password123!');
+  console.log('Org Member:          alice@acme.com            / Password123!');
+  console.log('Org Admin (Starter): admin@starlight.io        / Password123!');
+  console.log('Org Admin (Pending): founder@novasystems.dev   / Password123!');
 
   await mongoose.disconnect();
   process.exit(0);

@@ -1,12 +1,14 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
-import { useOrgMembers, useInviteMember, useChangeMemberRole, useRemoveMember } from '../../api/hooks.js';
+import { useOrgMembers, useOrgProfile, useInviteMember, useChangeMemberRole, useRemoveMember } from '../../api/hooks.js';
 import OrgLayout from './OrgLayout.jsx';
 import Badge from '../../components/Badge.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 
 export default function MembersPage() {
   const { token } = useAuth();
+  const { data: org } = useOrgProfile(token);
   const { data: members = [], isLoading, isError, error: fetchError } = useOrgMembers(token);
   const inviteMutation = useInviteMember(token);
   const changeRoleMutation = useChangeMemberRole(token);
@@ -16,8 +18,13 @@ export default function MembersPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
+  const isOrgActive = org?.status === 'active';
+  const isStarter = org?.currentPlan?.name === 'Starter';
+  const isStarterLimitReached = isStarter && members.length >= 5;
+
   const handleInvite = async (e) => {
     e.preventDefault();
+    if (!isOrgActive) return;
     setError('');
     setSuccess('');
     try {
@@ -31,10 +38,12 @@ export default function MembersPage() {
   };
 
   const changeRole = (id, role) => {
+    if (!isOrgActive) return;
     changeRoleMutation.mutate({ id, role });
   };
 
   const remove = (id) => {
+    if (!isOrgActive) return;
     if (!window.confirm('Are you sure you want to remove this member?')) return;
     removeMutation.mutate(id);
   };
@@ -48,7 +57,34 @@ export default function MembersPage() {
         </div>
       </div>
 
-      <div className="card">
+      {!isOrgActive && org && (
+        <div style={{ marginBottom: '1.25rem', padding: '0.85rem 1.15rem', background: '#fef2f2', borderRadius: 'var(--radius-sm)', border: '1px solid #fecaca', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <strong style={{ color: '#dc2626' }}>Subscription {org.status === 'cancelled' ? 'Cancelled' : 'Inactive'}:</strong>{' '}
+            <span style={{ fontSize: '0.88rem', color: '#991b1b' }}>
+              Your organization currently has no active subscription. Team invitations and management features are locked.
+            </span>
+          </div>
+          <Link to="/org/subscription">
+            <button type="button" className="btn-primary" style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem' }}>
+              Reactivate
+            </button>
+          </Link>
+        </div>
+      )}
+
+      {isStarter && (
+        <div style={{ marginBottom: '1.25rem', padding: '0.65rem 1rem', background: '#f0f9ff', borderRadius: 'var(--radius-sm)', border: '1px solid #bae6fd', fontSize: '0.85rem', color: '#0369a1' }}>
+          ℹ️ <strong>Starter Plan:</strong> Team member usage is <strong>{members.length} / 5</strong>.{' '}
+          {isStarterLimitReached ? (
+            <span style={{ color: '#dc2626', fontWeight: 600 }}>Limit reached. Upgrade to Pro for unlimited members.</span>
+          ) : (
+            <span>You have {5 - members.length} slot(s) remaining.</span>
+          )}
+        </div>
+      )}
+
+      <div className="card" style={{ opacity: isOrgActive && !isStarterLimitReached ? 1 : 0.75 }}>
         <h3>Invite a New Member</h3>
         <form onSubmit={handleInvite}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
@@ -58,6 +94,7 @@ export default function MembersPage() {
                 placeholder="Jane Doe"
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
+                disabled={!isOrgActive || isStarterLimitReached}
                 required
               />
             </div>
@@ -68,6 +105,7 @@ export default function MembersPage() {
                 placeholder="jane@company.com"
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
+                disabled={!isOrgActive || isStarterLimitReached}
                 required
               />
             </div>
@@ -76,6 +114,7 @@ export default function MembersPage() {
               <select
                 value={form.role}
                 onChange={(e) => setForm({ ...form, role: e.target.value })}
+                disabled={!isOrgActive || isStarterLimitReached}
               >
                 <option value="org_member">Member (Read-only)</option>
                 <option value="org_admin">Admin (Full Access)</option>
@@ -86,7 +125,11 @@ export default function MembersPage() {
           {error && <div className="error-text">{error}</div>}
           {success && <div className="success-text">{success}</div>}
 
-          <button type="submit" disabled={inviteMutation.isPending} style={{ marginTop: '0.25rem' }}>
+          <button
+            type="submit"
+            disabled={!isOrgActive || isStarterLimitReached || inviteMutation.isPending}
+            style={{ marginTop: '0.25rem' }}
+          >
             {inviteMutation.isPending ? 'Sending...' : 'Send Invitation'}
           </button>
         </form>
@@ -129,6 +172,7 @@ export default function MembersPage() {
                       <select
                         value={m.role}
                         onChange={(e) => changeRole(m._id, e.target.value)}
+                        disabled={!isOrgActive}
                         style={{ marginBottom: 0, maxWidth: 140, padding: '0.35rem 0.5rem', fontSize: '0.82rem' }}
                       >
                         <option value="org_member">Member</option>
@@ -140,7 +184,8 @@ export default function MembersPage() {
                       <button
                         type="button"
                         className="danger"
-                        style={{ padding: '0.3rem 0.65rem', fontSize: '0.8rem' }}
+                        disabled={!isOrgActive}
+                        style={{ padding: '0.3rem 0.65rem', fontSize: '0.8rem', opacity: isOrgActive ? 1 : 0.5 }}
                         onClick={() => remove(m._id)}
                       >
                         Remove

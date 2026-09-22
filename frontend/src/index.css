@@ -432,6 +432,12 @@ tbody tr:hover {
   border: 1px solid #fecaca;
 }
 
+.badge.badge-inactive {
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #cbd5e1;
+}
+
 .badge.badge-refunded,
 .badge.badge-rolled_back {
   background: #f1f5f9;

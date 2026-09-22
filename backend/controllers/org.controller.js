@@ -50,6 +50,28 @@ export const inviteMember = asyncHandler(async (req, res) => {
     return res.status(400).json({ error: 'Invalid role for an org member' });
   }
 
+  // 1. Subscription check: only active organizations can invite members
+  const org = await Organization.findById(req.user.orgId).populate('currentPlan');
+  if (!org || org.status !== 'active') {
+    return res.status(403).json({
+      error: `Active subscription required to invite members. Your organization subscription is currently ${org?.status || 'inactive'}. Please reactivate your subscription to unlock team features.`
+    });
+  }
+
+  // 2. Feature / Plan limit check: Starter plan allows up to 5 members
+  const plan = org.currentPlan;
+  if (plan && (plan.name === 'Starter' || plan.features?.some(f => f.toLowerCase().includes('up to 5 team members')))) {
+    const currentMemberCount = await User.countDocuments({
+      orgId: req.user.orgId,
+      status: { $ne: 'removed' }
+    });
+    if (currentMemberCount >= 5) {
+      return res.status(400).json({
+        error: 'Starter plan member limit reached (maximum 5 team members). Please upgrade to Pro for unlimited team members.'
+      });
+    }
+  }
+
   const existing = await User.findOne({ email: (email || '').toLowerCase() });
   if (existing) return res.status(400).json({ error: 'Email already in use' });
 
@@ -72,6 +94,13 @@ export const changeMemberRole = asyncHandler(async (req, res) => {
   const { role } = req.body;
   if (!['org_admin', 'org_member'].includes(role)) {
     return res.status(400).json({ error: 'Invalid role' });
+  }
+
+  const org = await Organization.findById(req.user.orgId);
+  if (!org || org.status !== 'active') {
+    return res.status(403).json({
+      error: `Active subscription required to change member roles. Your organization is currently ${org?.status || 'inactive'}.`
+    });
   }
 
   // orgId filter here is what stops an org_admin from editing a user
@@ -119,26 +148,25 @@ export const changeSubscriptionPlan = asyncHandler(async (req, res) => {
 
   const subscription = await Subscription.findOne({ orgId: req.user.orgId });
 
-  // If subscription is cancelled/expired, they need to resubscribe
-  if (subscription && (subscription.status === 'CANCELLED' || subscription.status === 'EXPIRED')) {
-    // Allow resubscription — initiate checkout for the selected plan
-  } else if (
+  // Only disallow if they are ALREADY actively subscribed to this exact plan
+  if (
+    org.status === 'active' &&
     subscription &&
     subscription.status === 'ACTIVE' &&
     subscription.planId.toString() === plan._id.toString()
   ) {
-    return res.status(400).json({ error: 'You are already subscribed to this plan' });
+    return res.status(400).json({ error: 'You are already actively subscribed to this plan' });
   }
 
   // Create a checkout session for the new plan — payment is required for
-  // every plan change. The webhook (handleCheckoutCompleted) will update
-  // the subscription's planId and notify the org via email.
+  // every plan change/activation. The webhook (handleCheckoutCompleted) will update
+  // the subscription's planId, set status active, and notify the org via email.
   const { createCheckoutSession } = await import('./billing.controller.js');
   const session = await createCheckoutSession(org, plan);
 
   // Record the intent in the transaction log
   const oldPlanName = subscription?.planId
-    ? (await Plan.findById(subscription.planId))?.name || 'Unknown'
+    ? (await Plan.findById(subscription.planId))?.name || 'None'
     : 'None';
 
   await Transaction.create({
@@ -161,13 +189,15 @@ export const cancelSubscription = asyncHandler(async (req, res) => {
   );
   if (!subscription) return res.status(404).json({ error: 'No subscription found' });
 
-  // Update Organization status to cancelled as well
-  await Organization.findByIdAndUpdate(req.user.orgId, { status: 'cancelled' });
+  // Update Organization status to cancelled and clear currentPlan since it is no longer active
+  await Organization.findByIdAndUpdate(req.user.orgId, { status: 'cancelled', currentPlan: null });
 
   await Transaction.create({ orgId: req.user.orgId, type: 'cancellation', status: 'SUCCESS' });
 
   const org = await Organization.findById(req.user.orgId);
-  await sendEmail({ to: org.billingEmail, subject: 'Subscription cancelled', text: 'Your subscription has been cancelled.' });
+  if (org?.billingEmail) {
+    await sendEmail({ to: org.billingEmail, subject: 'Subscription cancelled', text: 'Your subscription has been cancelled.' });
+  }
 
   res.json(subscription);
 });
