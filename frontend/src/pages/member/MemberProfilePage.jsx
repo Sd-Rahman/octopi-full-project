@@ -4,7 +4,7 @@ import { useUpdateMe } from '../../api/hooks.js';
 import MemberLayout from './MemberLayout.jsx';
 
 export default function MemberProfilePage() {
-  const { user, token } = useAuth();
+  const { user, token, updateUser } = useAuth();
   const updateMutation = useUpdateMe(token);
 
   const [name, setName] = useState(user?.name || '');
@@ -18,7 +18,10 @@ export default function MemberProfilePage() {
     try {
       const body = { name };
       if (password) body.password = password;
-      await updateMutation.mutateAsync(body);
+      const res = await updateMutation.mutateAsync(body);
+      if (res?.user && updateUser) {
+        updateUser(res.user);
+      }
       setPassword('');
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);

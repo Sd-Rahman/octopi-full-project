@@ -37,15 +37,31 @@ export default function MembersPage() {
     }
   };
 
-  const changeRole = (id, role) => {
+  const changeRole = async (id, role) => {
     if (!isOrgActive) return;
-    changeRoleMutation.mutate({ id, role });
+    setError('');
+    setSuccess('');
+    try {
+      await changeRoleMutation.mutateAsync({ id, role });
+      setSuccess('Member role updated successfully.');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      setError(err.message);
+    }
   };
 
-  const remove = (id) => {
+  const remove = async (id) => {
     if (!isOrgActive) return;
     if (!window.confirm('Are you sure you want to remove this member?')) return;
-    removeMutation.mutate(id);
+    setError('');
+    setSuccess('');
+    try {
+      await removeMutation.mutateAsync(id);
+      setSuccess('Member removed successfully.');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      setError(err.message);
+    }
   };
 
   return (

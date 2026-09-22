@@ -22,11 +22,16 @@ export const getOrgProfile = asyncHandler(async (req, res) => {
 // PATCH /api/org/profile — org_admin only
 export const updateOrgProfile = asyncHandler(async (req, res) => {
   const { name, contactEmail, billingEmail } = req.body;
+  const update = {};
+  if (name !== undefined) update.name = name.trim();
+  if (billingEmail !== undefined) update.billingEmail = billingEmail.toLowerCase().trim();
+  if (contactEmail !== undefined) update.contactEmail = contactEmail ? contactEmail.toLowerCase().trim() : '';
+
   const org = await Organization.findByIdAndUpdate(
     req.user.orgId,
-    { ...(name && { name }), ...(contactEmail && { contactEmail }), ...(billingEmail && { billingEmail }) },
-    { new: true }
-  );
+    update,
+    { new: true, runValidators: true }
+  ).populate('currentPlan');
   res.json(org);
 });
 
@@ -129,6 +134,10 @@ export const changeMemberRole = asyncHandler(async (req, res) => {
     });
   }
 
+  if (req.params.id === req.user._id.toString() && role !== 'org_admin') {
+    return res.status(400).json({ error: 'You cannot remove your own admin privileges' });
+  }
+
   // orgId filter here is what stops an org_admin from editing a user
   // in a DIFFERENT organization even if they somehow guess a valid user id.
   const user = await User.findOneAndUpdate(
@@ -143,6 +152,10 @@ export const changeMemberRole = asyncHandler(async (req, res) => {
 
 // DELETE /api/org/members/:id — org_admin only, soft delete
 export const removeMember = asyncHandler(async (req, res) => {
+  if (req.params.id === req.user._id.toString()) {
+    return res.status(400).json({ error: 'You cannot remove your own account' });
+  }
+
   const user = await User.findOneAndUpdate(
     { _id: req.params.id, orgId: req.user.orgId },
     { status: 'removed' },

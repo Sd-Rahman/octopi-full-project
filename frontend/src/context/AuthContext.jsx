@@ -50,8 +50,12 @@ export function AuthProvider({ children }) {
     setToken(jwt);
   };
 
+  const updateUser = (newUserData) => {
+    setUser((prev) => (prev ? { ...prev, ...newUserData } : newUserData));
+  };
+
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, token, loading, login, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );
