@@ -19,6 +19,17 @@ export const login = asyncHandler(async (req, res) => {
     return res.status(401).json({ error: 'Invalid email or password' });
   }
 
+  // Freeze access if organization has been suspended by platform admin
+  if (user.orgId) {
+    const Organization = (await import('../models/Organization.model.js')).default;
+    const org = await Organization.findById(user.orgId);
+    if (org && org.status === 'suspended') {
+      return res.status(403).json({
+        error: `Your organization has been suspended. Reason: ${org.suspendedReason || 'Administrative freeze'}.`
+      });
+    }
+  }
+
   const token = generateToken(user._id);
   res.json({
     user: { id: user._id, name: user.name, email: user.email, role: user.role, orgId: user.orgId },

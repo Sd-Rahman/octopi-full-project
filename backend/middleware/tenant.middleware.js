@@ -8,13 +8,28 @@
 //      how registration/invites work, but if it ever did, failing
 //      closed here is much safer than letting a query run with an
 //      undefined orgId (which could match unexpected documents).
-export const requireOrgContext = (req, res, next) => {
+export const requireOrgContext = async (req, res, next) => {
   if (req.user.role === 'platform_admin') {
     return res.status(403).json({ error: 'Use the platform admin endpoints for this' });
   }
   if (!req.user.orgId) {
     return res.status(403).json({ error: 'No organization associated with this account' });
   }
+
+  // Check if organization has been suspended by platform admin
+  const Organization = (await import('../models/Organization.model.js')).default;
+  const org = await Organization.findById(req.user.orgId);
+  if (!org) {
+    return res.status(404).json({ error: 'Organization not found' });
+  }
+
+  if (org.status === 'suspended') {
+    return res.status(403).json({
+      error: `Your organization has been suspended by the platform administrator. Reason: ${org.suspendedReason || 'Administrative freeze'}. Access to tenant data is locked.`
+    });
+  }
+
+  req.org = org;
   next();
 };
 
