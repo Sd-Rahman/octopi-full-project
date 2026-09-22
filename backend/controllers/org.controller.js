@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import mongoose from 'mongoose';
 import Organization from '../models/Organization.model.js';
 import User from '../models/User.model.js';
@@ -75,15 +76,40 @@ export const inviteMember = asyncHandler(async (req, res) => {
   const existing = await User.findOne({ email: (email || '').toLowerCase() });
   if (existing) return res.status(400).json({ error: 'Email already in use' });
 
-  // Temp random password the invitee never sees directly — they set
-  // their own via the same forgot-password flow, right after invite.
+  // Generate password setup token (valid 48h) so the invitee can click directly to set their password
+  const rawToken = crypto.randomBytes(32).toString('hex');
+  const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
   const tempPassword = Math.random().toString(36).slice(-10);
-  const user = await User.create({ name, email, password: tempPassword, role, orgId: req.user.orgId, status: 'invited' });
+
+  const user = await User.create({
+    name,
+    email,
+    password: tempPassword,
+    role,
+    orgId: req.user.orgId,
+    status: 'invited',
+    resetPasswordToken: hashedToken,
+    resetPasswordExpires: Date.now() + 48 * 60 * 60 * 1000,
+  });
+
+  const setupUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password/${rawToken}`;
 
   await sendEmail({
     to: email,
-    subject: `You've been invited to join an organization`,
-    text: `You've been invited as a ${role}. Use "Forgot password" on the login page with this email to set your password.`,
+    subject: `You've been invited to join ${org.name}`,
+    text: [
+      `Hi ${name},`,
+      '',
+      `You have been invited to join ${org.name} as a ${role}.`,
+      '',
+      `Click the link below to set your password and access your account:`,
+      setupUrl,
+      '',
+      `This invitation link is valid for 48 hours. If you ever need help, you can also use "Forgot password" on the login page.`,
+      '',
+      `Thanks,`,
+      `The Octopi Digital Team`,
+    ].join('\n'),
   });
 
   res.status(201).json({ id: user._id, name: user.name, email: user.email, role: user.role, status: user.status });

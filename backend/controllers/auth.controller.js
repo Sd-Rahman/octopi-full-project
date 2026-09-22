@@ -72,9 +72,12 @@ export const resetPassword = asyncHandler(async (req, res) => {
   }
 
   user.password = password; // re-hashed automatically by the pre-save hook
+  if (user.status === 'invited') {
+    user.status = 'active';
+  }
   user.resetPasswordToken = null;
   user.resetPasswordExpires = null;
   await user.save();
 
-  res.json({ message: 'Password updated. You can now log in.' });
+  res.json({ message: 'Password set successfully. You can now log in.' });
 });
