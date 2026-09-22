@@ -13,8 +13,8 @@ import { createCheckoutSession } from './billing.controller.js';
 export const registerOrganization = asyncHandler(async (req, res) => {
   const { orgName, adminName, adminEmail, adminPassword, planId } = req.body;
 
-  if (!orgName || !adminName || !adminEmail || !adminPassword || !planId) {
-    return res.status(400).json({ error: 'All fields are required' });
+  if (!orgName || !adminName || !adminEmail || !adminPassword) {
+    return res.status(400).json({ error: 'Organization name, your name, email, and password are required' });
   }
   if (adminPassword.length < 6) {
     return res.status(400).json({ error: 'Password must be at least 6 characters' });
@@ -25,16 +25,19 @@ export const registerOrganization = asyncHandler(async (req, res) => {
     return res.status(400).json({ error: 'Email already in use' });
   }
 
-  const plan = await Plan.findById(planId);
-  if (!plan || !plan.isActive) {
-    return res.status(400).json({ error: 'Selected plan is not available' });
+  let plan = null;
+  if (planId) {
+    plan = await Plan.findById(planId);
+    if (!plan || !plan.isActive) {
+      return res.status(400).json({ error: 'Selected plan is not available' });
+    }
   }
 
   const org = await Organization.create({
     name: orgName,
     billingEmail: adminEmail.toLowerCase(),
     status: 'pending',
-    currentPlan: plan._id,
+    currentPlan: plan ? plan._id : null,
   });
 
   const adminUser = await User.create({
@@ -45,18 +48,18 @@ export const registerOrganization = asyncHandler(async (req, res) => {
     orgId: org._id,
   });
 
-  const session = await createCheckoutSession(org, plan);
+  let checkoutUrl = null;
+  if (plan) {
+    const session = await createCheckoutSession(org, plan);
+    checkoutUrl = session.url;
+  }
 
-  // We DO issue a token here so the admin can be "logged in" enough to
-  // see a checkout/retry screen — but every org-scoped route still checks
-  // org.status === 'active' before allowing real access (frontend AND
-  // backend), so a PENDING admin can't reach billing/members/etc.
   const token = generateToken(adminUser._id);
 
   res.status(201).json({
     org: { id: org._id, name: org.name, status: org.status },
     user: { id: adminUser._id, name: adminUser.name, email: adminUser.email, role: adminUser.role, orgId: org._id },
     token,
-    checkoutUrl: session.url,
+    checkoutUrl,
   });
 });

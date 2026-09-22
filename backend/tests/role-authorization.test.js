@@ -108,3 +108,63 @@ test('org_member CAN access read-only org info', async () => {
   assert.equal(res.status, 200);
   assert.equal(res.body.name, 'Test Org');
 });
+
+test('platform_admin can delete an organization and all its resources', async () => {
+  const Organization = (await import('../models/Organization.model.js')).default;
+  const User = (await import('../models/User.model.js')).default;
+  const Plan = (await import('../models/Plan.model.js')).default;
+  const Subscription = (await import('../models/Subscription.model.js')).default;
+  const generateToken = (await import('../utils/generateToken.js')).default;
+
+  const plan = await Plan.create({ name: 'Test Plan', price: 999, billingInterval: 'monthly', features: [] });
+  const org = await Organization.create({ name: 'Org To Delete', billingEmail: 'delete@test.com', status: 'active', currentPlan: plan._id });
+  await User.create({ name: 'User 1', email: 'u1@test.com', password: 'test', role: 'org_admin', orgId: org._id });
+  await Subscription.create({ orgId: org._id, planId: plan._id, status: 'ACTIVE' });
+
+  const platformAdmin = await User.create({ name: 'Super Admin', email: 'super@test.com', password: 'test', role: 'platform_admin' });
+  const adminToken = generateToken(platformAdmin._id);
+
+  const res = await request(app)
+    .delete(`/api/admin/orgs/${org._id}`)
+    .set('Authorization', `Bearer ${adminToken}`);
+
+  assert.equal(res.status, 200);
+  assert.equal(res.body.success, true);
+
+  // Check org and associated resources are deleted
+  const deletedOrg = await Organization.findById(org._id);
+  assert.equal(deletedOrg, null);
+
+  const users = await User.find({ orgId: org._id });
+  assert.equal(users.length, 0);
+
+  const subs = await Subscription.find({ orgId: org._id });
+  assert.equal(subs.length, 0);
+});
+
+test('organization can register without payment (no plan selected)', async () => {
+  const Organization = (await import('../models/Organization.model.js')).default;
+  const User = (await import('../models/User.model.js')).default;
+
+  const res = await request(app)
+    .post('/api/register')
+    .send({
+      orgName: 'Free Signup Org',
+      adminName: 'Free User',
+      adminEmail: 'free@signup.com',
+      adminPassword: 'Password123!',
+    });
+
+  assert.equal(res.status, 201);
+  assert.equal(res.body.org.name, 'Free Signup Org');
+  assert.equal(res.body.org.status, 'pending');
+  assert.equal(res.body.checkoutUrl, null);
+  assert.ok(res.body.token);
+
+  const org = await Organization.findById(res.body.org.id);
+  assert.equal(org.currentPlan, null);
+  assert.equal(org.status, 'pending');
+
+  const user = await User.findById(res.body.user.id);
+  assert.equal(user.role, 'org_admin');
+});

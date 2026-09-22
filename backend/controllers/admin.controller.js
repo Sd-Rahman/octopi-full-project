@@ -68,6 +68,23 @@ export const reactivateOrganization = asyncHandler(async (req, res) => {
   res.json(org);
 });
 
+// DELETE /api/admin/orgs/:id — platform_admin only
+export const deleteOrganization = asyncHandler(async (req, res) => {
+  const org = await Organization.findById(req.params.id);
+  if (!org) return res.status(404).json({ error: 'Organization not found' });
+
+  // Cascade delete all resources belonging to this tenant
+  await Promise.all([
+    User.deleteMany({ orgId: org._id }),
+    Subscription.deleteMany({ orgId: org._id }),
+    Payment.deleteMany({ orgId: org._id }),
+    Transaction.deleteMany({ orgId: org._id }),
+    Organization.findByIdAndDelete(org._id),
+  ]);
+
+  res.json({ success: true, message: `Organization ${org.name} and all related data have been permanently deleted.` });
+});
+
 // ── Plans management ──
 export const createPlan = asyncHandler(async (req, res) => {
   const plan = await Plan.create(req.body);
