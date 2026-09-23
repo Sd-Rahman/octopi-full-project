@@ -1,12 +1,10 @@
 import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { useOrgPayments } from '../../api/hooks.js';
-import { apiRequest } from '../../api/client.js';
+import { apiRequest, BASE_URL } from '../../api/client.js';
 import OrgLayout from './OrgLayout.jsx';
 import Badge from '../../components/Badge.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
-
-const BASE_URL = 'http://localhost:5000/api';
 
 export default function BillingPage() {
   const { token } = useAuth();

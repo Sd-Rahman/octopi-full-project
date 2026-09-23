@@ -1,4 +1,4 @@
-const BASE_URL = 'http://localhost:5000/api';
+export const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
 
 // Global listener for 401 responses — AuthContext registers a callback
 // here so that any API call getting a 401 (expired/invalid token) can
