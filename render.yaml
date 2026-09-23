@@ -1,0 +1,37 @@
+services:
+  # Backend Web Service
+  - type: web
+    name: octopi-full-project
+    runtime: node
+    plan: free
+    region: singapore
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: MONGO_URI
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: FRONTEND_URL
+        value: https://octopi-frontend.onrender.com
+
+  # Frontend Static Site
+  - type: web
+    name: octopi-frontend
+    runtime: static
+    plan: free
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_BASE_URL
+        value: https://octopi-full-project.onrender.com/api

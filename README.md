@@ -1,5 +1,12 @@
 # Octopi Digital — Multi-Tenant SaaS Subscription Platform
 
+## Live Deployment
+
+The full-stack application is deployed and live on Render:
+
+- **Web Application (Frontend)**: [https://octopi-frontend.onrender.com](https://octopi-frontend.onrender.com)
+- **REST API (Backend)**: [https://octopi-full-project.onrender.com](https://octopi-full-project.onrender.com)
+
 ## Architecture
 
 - **Frontend**: React (Vite, no Next.js) + React Router. Plain `fetch`-based API client, no Redux/TanStack Query — state is simple enough here that React Context (`AuthContext`) covers it. `ProtectedRoute` gates pages by role client-side, purely for UX; it is never the real security boundary.
