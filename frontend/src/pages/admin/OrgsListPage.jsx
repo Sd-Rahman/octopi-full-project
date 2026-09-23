@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
-import { useAdminOrgs, useDeleteOrg } from '../../api/hooks.js';
+import { useAdminOrgs } from '../../api/hooks.js';
 import AdminLayout from './AdminLayout.jsx';
 import Badge from '../../components/Badge.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
@@ -13,22 +13,6 @@ export default function OrgsListPage() {
   const [appliedFilters, setAppliedFilters] = useState({});
 
   const { data: orgs = [], isLoading, isError, error } = useAdminOrgs(token, appliedFilters);
-  const deleteOrgMutation = useDeleteOrg(token);
-
-  const handleDelete = async (id, name) => {
-    if (
-      !window.confirm(
-        `Are you sure you want to permanently delete "${name}"?\n\nThis will remove the organization, all its members, subscriptions, payments, and transaction history. This action cannot be undone.`
-      )
-    ) {
-      return;
-    }
-    try {
-      await deleteOrgMutation.mutateAsync(id);
-    } catch (err) {
-      alert(err.message);
-    }
-  };
 
   const applyFilters = (e) => {
     e?.preventDefault();
@@ -129,22 +113,11 @@ export default function OrgsListPage() {
                   <td>{o.memberCount || 0}</td>
                   <td>{new Date(o.createdAt).toLocaleDateString(undefined, { dateStyle: 'medium' })}</td>
                   <td style={{ textAlign: 'right' }}>
-                    <div style={{ display: 'inline-flex', gap: '0.4rem', justifyContent: 'flex-end' }}>
-                      <Link to={`/admin/orgs/${o._id}`}>
-                        <button type="button" className="secondary" style={{ padding: '0.35rem 0.65rem', fontSize: '0.8rem' }}>
-                          View
-                        </button>
-                      </Link>
-                      <button
-                        type="button"
-                        className="danger"
-                        style={{ padding: '0.35rem 0.65rem', fontSize: '0.8rem' }}
-                        onClick={() => handleDelete(o._id, o.name)}
-                        disabled={deleteOrgMutation.isPending}
-                      >
-                        Delete
+                    <Link to={`/admin/orgs/${o._id}`}>
+                      <button type="button" className="secondary" style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem' }}>
+                        View Details
                       </button>
-                    </div>
+                    </Link>
                   </td>
                 </tr>
               ))}

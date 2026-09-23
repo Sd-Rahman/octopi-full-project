@@ -1,6 +1,6 @@
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
-import { useAdminOrgDetail, useSuspendOrg, useReactivateOrg, useDeleteOrg } from '../../api/hooks.js';
+import { useAdminOrgDetail, useSuspendOrg, useReactivateOrg } from '../../api/hooks.js';
 import AdminLayout from './AdminLayout.jsx';
 import Badge from '../../components/Badge.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
@@ -8,30 +8,12 @@ import EmptyState from '../../components/EmptyState.jsx';
 export default function OrgDetailPage() {
   const { id } = useParams();
   const { token } = useAuth();
-  const navigate = useNavigate();
   const { data, isLoading, isError, error: fetchError } = useAdminOrgDetail(token, id);
   const suspendMutation = useSuspendOrg(token);
   const reactivateMutation = useReactivateOrg(token);
-  const deleteOrgMutation = useDeleteOrg(token);
 
   const suspend = () => suspendMutation.mutate({ id, reason: '' });
   const reactivate = () => reactivateMutation.mutate(id);
-
-  const handleDelete = async () => {
-    if (
-      !window.confirm(
-        `Are you sure you want to permanently delete "${data.org.name}"?\n\nThis will remove the organization, all its members, subscriptions, payments, and transaction history. This action cannot be undone.`
-      )
-    ) {
-      return;
-    }
-    try {
-      await deleteOrgMutation.mutateAsync(id);
-      navigate('/admin/orgs');
-    } catch (err) {
-      alert(err.message);
-    }
-  };
 
   if (isLoading) {
     return (
@@ -68,24 +50,16 @@ export default function OrgDetailPage() {
           <h1 style={{ margin: 0 }}>{org.name}</h1>
           <Badge status={org.status} />
         </div>
-        <div style={{ display: 'flex', gap: '0.65rem' }}>
+        <div>
           {org.status === 'suspended' ? (
             <button type="button" onClick={reactivate} disabled={reactivateMutation.isPending}>
               {reactivateMutation.isPending ? 'Reactivating...' : 'Reactivate Organization'}
             </button>
           ) : (
-            <button type="button" className="secondary" onClick={suspend} disabled={suspendMutation.isPending}>
+            <button type="button" className="danger" onClick={suspend} disabled={suspendMutation.isPending}>
               {suspendMutation.isPending ? 'Suspending...' : 'Suspend Organization'}
             </button>
           )}
-          <button
-            type="button"
-            className="danger"
-            onClick={handleDelete}
-            disabled={deleteOrgMutation.isPending}
-          >
-            {deleteOrgMutation.isPending ? 'Deleting...' : 'Delete Organization'}
-          </button>
         </div>
       </div>
 

@@ -6,7 +6,6 @@ import {
   getOrganizationDetail,
   suspendOrganization,
   reactivateOrganization,
-  deleteOrganization,
   createPlan,
   listPlans,
   updatePlan,
@@ -26,7 +25,6 @@ router.get('/orgs', listOrganizations);
 router.get('/orgs/:id', getOrganizationDetail);
 router.post('/orgs/:id/suspend', suspendOrganization);
 router.post('/orgs/:id/reactivate', reactivateOrganization);
-router.delete('/orgs/:id', deleteOrganization);
 
 router.get('/plans', listPlans);
 router.post('/plans', createPlan);

@@ -186,18 +186,6 @@ export function useReactivateOrg(token) {
   });
 }
 
-export function useDeleteOrg(token) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (id) =>
-      apiRequest(`/admin/orgs/${id}`, { method: 'DELETE', token }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['admin', 'orgs'] });
-      qc.invalidateQueries({ queryKey: queryKeys.adminStats });
-    },
-  });
-}
-
 export function useCreatePlan(token) {
   const qc = useQueryClient();
   return useMutation({
